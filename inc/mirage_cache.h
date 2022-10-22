@@ -1,5 +1,5 @@
-#ifndef CACHE_H
-#define CACHE_H
+#ifndef MIRAGE_CACHE_H
+#define MIRAGE_CACHE_H
 
 #include <functional>
 #include <list>

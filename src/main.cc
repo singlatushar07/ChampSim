@@ -12,6 +12,7 @@
 #include "champsim.h"
 #include "champsim_constants.h"
 #include "dram_controller.h"
+#include "mirage_cache.h"
 #include "ooo_cpu.h"
 #include "operable.h"
 #include "tracereader.h"
@@ -31,6 +32,7 @@ extern MEMORY_CONTROLLER DRAM;
 extern VirtualMemory vmem;
 extern std::array<O3_CPU*, NUM_CPUS> ooo_cpu;
 extern std::array<CACHE*, NUM_CACHES> caches;
+extern MIRAGE_CACHE* llc_cache;
 extern std::array<champsim::operable*, NUM_OPERABLES> operables;
 
 std::vector<tracereader*> traces;
@@ -46,6 +48,14 @@ uint64_t champsim::deprecated_clock_cycle::operator[](std::size_t cpu_idx)
   return ooo_cpu[cpu_idx]->current_cycle;
 }
 
+void record_roi_stats(uint32_t cpu, MIRAGE_CACHE* cache)
+{
+  for (uint32_t i = 0; i < NUM_TYPES; i++) {
+    cache->roi_access[cpu][i] = cache->sim_access[cpu][i];
+    cache->roi_hit[cpu][i] = cache->sim_hit[cpu][i];
+    cache->roi_miss[cpu][i] = cache->sim_miss[cpu][i];
+  }
+}
 void record_roi_stats(uint32_t cpu, CACHE* cache)
 {
   for (uint32_t i = 0; i < NUM_TYPES; i++) {
@@ -55,6 +65,51 @@ void record_roi_stats(uint32_t cpu, CACHE* cache)
   }
 }
 
+void print_roi_stats(uint32_t cpu, MIRAGE_CACHE* cache)
+{
+  uint64_t TOTAL_ACCESS = 0, TOTAL_HIT = 0, TOTAL_MISS = 0;
+
+  for (uint32_t i = 0; i < NUM_TYPES; i++) {
+    TOTAL_ACCESS += cache->roi_access[cpu][i];
+    TOTAL_HIT += cache->roi_hit[cpu][i];
+    TOTAL_MISS += cache->roi_miss[cpu][i];
+  }
+
+  if (TOTAL_ACCESS > 0) {
+    cout << cache->NAME;
+    cout << " TOTAL     ACCESS: " << setw(10) << TOTAL_ACCESS << "  HIT: " << setw(10) << TOTAL_HIT << "  MISS: " << setw(10) << TOTAL_MISS << endl;
+
+    cout << cache->NAME;
+    cout << " LOAD      ACCESS: " << setw(10) << cache->roi_access[cpu][0] << "  HIT: " << setw(10) << cache->roi_hit[cpu][0] << "  MISS: " << setw(10)
+         << cache->roi_miss[cpu][0] << endl;
+
+    cout << cache->NAME;
+    cout << " RFO       ACCESS: " << setw(10) << cache->roi_access[cpu][1] << "  HIT: " << setw(10) << cache->roi_hit[cpu][1] << "  MISS: " << setw(10)
+         << cache->roi_miss[cpu][1] << endl;
+
+    cout << cache->NAME;
+    cout << " PREFETCH  ACCESS: " << setw(10) << cache->roi_access[cpu][2] << "  HIT: " << setw(10) << cache->roi_hit[cpu][2] << "  MISS: " << setw(10)
+         << cache->roi_miss[cpu][2] << endl;
+
+    cout << cache->NAME;
+    cout << " WRITEBACK ACCESS: " << setw(10) << cache->roi_access[cpu][3] << "  HIT: " << setw(10) << cache->roi_hit[cpu][3] << "  MISS: " << setw(10)
+         << cache->roi_miss[cpu][3] << endl;
+
+    cout << cache->NAME;
+    cout << " TRANSLATION ACCESS: " << setw(10) << cache->roi_access[cpu][4] << "  HIT: " << setw(10) << cache->roi_hit[cpu][4] << "  MISS: " << setw(10)
+         << cache->roi_miss[cpu][4] << endl;
+
+    cout << cache->NAME;
+    cout << " PREFETCH  REQUESTED: " << setw(10) << cache->pf_requested << "  ISSUED: " << setw(10) << cache->pf_issued;
+    cout << "  USEFUL: " << setw(10) << cache->pf_useful << "  USELESS: " << setw(10) << cache->pf_useless << endl;
+
+    cout << cache->NAME;
+    cout << " AVERAGE MISS LATENCY: " << (1.0 * (cache->total_miss_latency)) / TOTAL_MISS << " cycles" << endl;
+    // cout << " AVERAGE MISS LATENCY: " <<
+    // (cache->total_miss_latency)/TOTAL_MISS << " cycles " <<
+    // cache->total_miss_latency << "/" << TOTAL_MISS<< endl;
+  }
+}
 void print_roi_stats(uint32_t cpu, CACHE* cache)
 {
   uint64_t TOTAL_ACCESS = 0, TOTAL_HIT = 0, TOTAL_MISS = 0;
@@ -101,6 +156,38 @@ void print_roi_stats(uint32_t cpu, CACHE* cache)
   }
 }
 
+
+void print_sim_stats(uint32_t cpu, MIRAGE_CACHE* cache)
+{
+  uint64_t TOTAL_ACCESS = 0, TOTAL_HIT = 0, TOTAL_MISS = 0;
+
+  for (uint32_t i = 0; i < NUM_TYPES; i++) {
+    TOTAL_ACCESS += cache->sim_access[cpu][i];
+    TOTAL_HIT += cache->sim_hit[cpu][i];
+    TOTAL_MISS += cache->sim_miss[cpu][i];
+  }
+
+  if (TOTAL_ACCESS > 0) {
+    cout << cache->NAME;
+    cout << " TOTAL     ACCESS: " << setw(10) << TOTAL_ACCESS << "  HIT: " << setw(10) << TOTAL_HIT << "  MISS: " << setw(10) << TOTAL_MISS << endl;
+
+    cout << cache->NAME;
+    cout << " LOAD      ACCESS: " << setw(10) << cache->sim_access[cpu][0] << "  HIT: " << setw(10) << cache->sim_hit[cpu][0] << "  MISS: " << setw(10)
+         << cache->sim_miss[cpu][0] << endl;
+
+    cout << cache->NAME;
+    cout << " RFO       ACCESS: " << setw(10) << cache->sim_access[cpu][1] << "  HIT: " << setw(10) << cache->sim_hit[cpu][1] << "  MISS: " << setw(10)
+         << cache->sim_miss[cpu][1] << endl;
+
+    cout << cache->NAME;
+    cout << " PREFETCH  ACCESS: " << setw(10) << cache->sim_access[cpu][2] << "  HIT: " << setw(10) << cache->sim_hit[cpu][2] << "  MISS: " << setw(10)
+         << cache->sim_miss[cpu][2] << endl;
+
+    cout << cache->NAME;
+    cout << " WRITEBACK ACCESS: " << setw(10) << cache->sim_access[cpu][3] << "  HIT: " << setw(10) << cache->sim_hit[cpu][3] << "  MISS: " << setw(10)
+         << cache->sim_miss[cpu][3] << endl;
+  }
+}
 void print_sim_stats(uint32_t cpu, CACHE* cache)
 {
   uint64_t TOTAL_ACCESS = 0, TOTAL_HIT = 0, TOTAL_MISS = 0;
@@ -224,6 +311,32 @@ void print_dram_stats()
   }
 }
 
+void reset_cache_stats(uint32_t cpu, MIRAGE_CACHE* cache)
+{
+  for (uint32_t i = 0; i < NUM_TYPES; i++) {
+    cache->sim_access[cpu][i] = 0;
+    cache->sim_hit[cpu][i] = 0;
+    cache->sim_miss[cpu][i] = 0;
+  }
+
+  cache->pf_requested = 0;
+  cache->pf_issued = 0;
+  cache->pf_useful = 0;
+  cache->pf_useless = 0;
+  cache->pf_fill = 0;
+
+  cache->total_miss_latency = 0;
+
+  cache->RQ_ACCESS = 0;
+  cache->RQ_MERGED = 0;
+  cache->RQ_TO_CACHE = 0;
+
+  cache->WQ_ACCESS = 0;
+  cache->WQ_MERGED = 0;
+  cache->WQ_TO_CACHE = 0;
+  cache->WQ_FORWARD = 0;
+  cache->WQ_FULL = 0;
+}
 void reset_cache_stats(uint32_t cpu, CACHE* cache)
 {
   for (uint32_t i = 0; i < NUM_TYPES; i++) {
@@ -285,6 +398,7 @@ void finish_warmup()
 
     for (auto it = caches.rbegin(); it != caches.rend(); ++it)
       reset_cache_stats(i, *it);
+    reset_cache_stats(i, llc_cache);
   }
   cout << endl;
 
@@ -393,6 +507,8 @@ int main(int argc, char** argv)
     (*it)->impl_prefetcher_initialize();
     (*it)->impl_replacement_initialize();
   }
+  llc_cache->impl_prefetcher_initialize();
+  llc_cache->impl_replacement_initialize();
 
   // simulation entry point
   while (std::any_of(std::begin(simulation_complete), std::end(simulation_complete), std::logical_not<uint8_t>())) {
@@ -467,6 +583,7 @@ int main(int argc, char** argv)
 
         for (auto it = caches.rbegin(); it != caches.rend(); ++it)
           record_roi_stats(i, *it);
+        record_roi_stats(i, llc_cache);
       }
     }
   }
@@ -486,6 +603,7 @@ int main(int argc, char** argv)
            << " cycles: " << ooo_cpu[i]->current_cycle - ooo_cpu[i]->begin_sim_cycle << endl;
       for (auto it = caches.rbegin(); it != caches.rend(); ++it)
         print_sim_stats(i, *it);
+      print_sim_stats(i, llc_cache);
     }
   }
 
@@ -495,13 +613,16 @@ int main(int argc, char** argv)
     cout << " instructions: " << ooo_cpu[i]->finish_sim_instr << " cycles: " << ooo_cpu[i]->finish_sim_cycle << endl;
     for (auto it = caches.rbegin(); it != caches.rend(); ++it)
       print_roi_stats(i, *it);
+    print_roi_stats(i, llc_cache);
   }
 
   for (auto it = caches.rbegin(); it != caches.rend(); ++it)
     (*it)->impl_prefetcher_final_stats();
+  llc_cache->impl_prefetcher_final_stats();
 
   for (auto it = caches.rbegin(); it != caches.rend(); ++it)
     (*it)->impl_replacement_final_stats();
+  llc_cache->impl_replacement_final_stats();
 
 #ifndef CRC2_COMPILE
   print_dram_stats();

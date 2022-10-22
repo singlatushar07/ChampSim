@@ -5,6 +5,7 @@ src/core_inst.cc
 .champsimconfig_cache
 ./Makefile
 
+.vscode/
 bin/
 obj/
 
