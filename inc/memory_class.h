@@ -26,15 +26,10 @@ public:
 };
 
 // MIRAGE CACHE TAG
-class MIRAGE_TAG
+class MIRAGE_TAG : public BLOCK
 {
 public:
-  bool valid = false, prefetch = false, dirty = false;
-
-  uint64_t address = 0, v_address = 0, tag = 0, *data = nullptr, ip = 0, cpu = 0, instr_id = 0;
-
-  // replacement state
-  uint32_t lru = std::numeric_limits<uint32_t>::max() >> 1;
+  uint64_t* data_ptr = nullptr;
 };
 
 class MemoryRequestConsumer

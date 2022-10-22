@@ -76,10 +76,10 @@ void MIRAGE_CACHE::handle_writeback()
 
     // access cache
     bool hit = false;
-    for(uint32_t skew = 0; i < NUM_SKEWS; i++) {
+    for (uint32_t skew = 0; skew < NUM_SKEWS; skew++) {
       uint32_t set = get_set(handle_pkt.address, keys[skew]);
       uint32_t way = get_way(handle_pkt.address, skew, set);
-      BLOCK& fill_block = block[set * NUM_WAY + way];
+      BLOCK& fill_block = block[skew][set * NUM_WAY + way];
 
       if (way < NUM_WAY) // HIT
       {
@@ -105,7 +105,7 @@ void MIRAGE_CACHE::handle_writeback()
       int32_t max_invalid = -1;
       uint32_t skew = UINT32_MAX;
       for (int i = 0; i < NUM_SKEWS; i++) {
-        uint32_t set = get_set(fill_mshr->address, keys[i]);
+        uint32_t set = get_set(handle_pkt.address, keys[i]);
         auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
         auto set_end = std::next(set_begin, NUM_WAY);
         auto count = std::count_if(set_begin, set_end, [](MIRAGE_TAG &tag) {return !tag.valid;});
@@ -115,7 +115,7 @@ void MIRAGE_CACHE::handle_writeback()
         }
       }
       assert(skew != UINT32_MAX);
-      uint32_t set = get_set(fill_mshr->address, keys[skew]);
+      uint32_t set = get_set(handle_pkt.address, keys[skew]);
 
       auto set_begin = std::next(std::begin(block[skew]), set * NUM_WAY);
       auto set_end = std::next(set_begin, NUM_WAY);
@@ -155,7 +155,7 @@ void MIRAGE_CACHE::handle_read()
     ever_seen_data |= (handle_pkt.v_address != handle_pkt.ip);
 
     bool hit = false;
-    for(uint32_t skew = 0; i < NUM_SKEWS; i++) {
+    for (uint32_t skew = 0; skew < NUM_SKEWS; skew++) {
       uint32_t set = get_set(handle_pkt.address, keys[skew]);
       uint32_t way = get_way(handle_pkt.address, skew, set);
       if(way < NUM_WAY) {
@@ -187,7 +187,7 @@ void MIRAGE_CACHE::handle_prefetch()
     PACKET& handle_pkt = PQ.front();
 
     bool hit = false;
-    for(uint32_t skew = 0; i < NUM_SKEWS; i++) {
+    for (uint32_t skew = 0; skew < NUM_SKEWS; skew++) {
       uint32_t set = get_set(handle_pkt.address, keys[skew]);
       uint32_t way = get_way(handle_pkt.address, skew, set);
       if(way < NUM_WAY) {
@@ -326,7 +326,7 @@ bool MIRAGE_CACHE::readlike_miss(PACKET& handle_pkt)
   return true;
 }
 
-bool MIRAGE_CACHE::filllike_miss(int32_t skew, std::size_t set, std::size_t way, PACKET& handle_pkt)
+bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t way, PACKET& handle_pkt)
 {
   DP(if (warmup_complete[handle_pkt.cpu]) {
     std::cout << "[" << NAME << "] " << __func__ << " miss";
@@ -438,22 +438,22 @@ void MIRAGE_CACHE::operate_reads()
   VAPQ.operate();
 }
 
-uint32_t MIRAGE_CACHE::get_set(uint64_t address) { return ((address >> OFFSET_BITS) & bitmask(lg2(NUM_SET))); }
+uint32_t MIRAGE_CACHE::get_set(uint64_t address, uint64_t key) { return ((address >> OFFSET_BITS) & bitmask(lg2(NUM_SET))); }
 
-uint32_t MIRAGE_CACHE::get_way(uint64_t address, uint32_t skew, uint32_t set)
+uint32_t MIRAGE_CACHE::get_way(uint64_t address, std::size_t skew, uint32_t set)
 {
   auto begin = std::next(block[skew].begin(), set * NUM_WAY);
   auto end = std::next(begin, NUM_WAY);
   return std::distance(begin, std::find_if(begin, end, eq_addr<BLOCK>(address, OFFSET_BITS)));
 }
 
-int MIRAGE_CACHE::invalidate_entry(uint64_t inval_addr)
+int MIRAGE_CACHE::invalidate_entry(uint64_t inval_addr, std::size_t skew)
 {
-  uint32_t set = get_set(inval_addr);
-  uint32_t way = get_way(inval_addr, set);
+  uint32_t set = get_set(inval_addr, keys[skew]);
+  uint32_t way = get_way(inval_addr, skew, set);
 
   if (way < NUM_WAY)
-    block[set * NUM_WAY + way].valid = 0;
+    block[skew][set * NUM_WAY + way].valid = 0;
 
   return way;
 }
