@@ -35,6 +35,7 @@ void MIRAGE_CACHE::handle_fill()
         skew = i;
       }
     }
+
     assert(skew != UINT32_MAX);
     uint32_t set = get_set(fill_mshr->address, keys[skew]);
 
@@ -343,14 +344,15 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
 #endif
   assert(handle_pkt.type != WRITEBACK || !bypass);
 
-  BLOCK& fill_block = block[skew][set * NUM_WAY + way];
-  bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
-  uint64_t evicting_address = 0;
+  MIRAGE_TAG& fill_block = block[skew][set * NUM_WAY + way];
 
+  bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
+  bool is_global_evict = false;
+  uint64_t evicting_address = 0;
+  uint64_t datastore_fwdptr = NULL;
   if (!bypass) {
     if (evicting_dirty) {
       PACKET writeback_packet;
-
       writeback_packet.fill_level = lower_level->fill_level;
       writeback_packet.cpu = handle_pkt.cpu;
       writeback_packet.address = fill_block.address;
@@ -358,12 +360,38 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
       writeback_packet.instr_id = handle_pkt.instr_id;
       writeback_packet.ip = 0;
       writeback_packet.type = WRITEBACK;
+      datastore_fwdptr = fill_block.data_ptr; // Get datastore ptr of evicted 
+      datastore[datastore_fwdptr].invalid = 1;  // Set datastore invalid
 
       auto result = lower_level->add_wq(&writeback_packet);
       if (result == -2)
         return false;
     }
+    else {
+      datastore_fwdptr = datastore_find_victim();
+      datapoint data = datastore[datastore_fwdptr];
+      // If datablock is not invalid, evict.
+      if (!data.invalid){
+        MIRAGE_TAG& global_evict_block = block[data.skew][data.set * NUM_WAY + data.way];
+        PACKET writeback_packet;
+        writeback_packet.fill_level = lower_level->fill_level;
+        writeback_packet.cpu = handle_pkt.cpu;
+        writeback_packet.address = global_evict_block.address;
+        writeback_packet.data = global_evict_block.data;
+        writeback_packet.instr_id = handle_pkt.instr_id;
+        writeback_packet.ip = 0;
+        writeback_packet.type = WRITEBACK;
+        datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted 
+        datastore[datastore_fwdptr].invalid = 1;  // Set datastore invalid
 
+        auto result = lower_level->add_wq(&writeback_packet);
+        if (result == -2)
+          return false;
+      }
+      
+    }
+    // HAS TO DO WITH PREFETCHER
+    {
     if (ever_seen_data)
       evicting_address = fill_block.address & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
     else
@@ -374,7 +402,8 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
 
     if (handle_pkt.type == PREFETCH)
       pf_fill++;
-
+    }
+    datapoint data = datastore[datastore_fwdptr];
     fill_block.valid = true;
     fill_block.prefetch = (handle_pkt.type == PREFETCH && handle_pkt.pf_origin_level == fill_level);
     fill_block.dirty = (handle_pkt.type == WRITEBACK || (handle_pkt.type == RFO && handle_pkt.to_return.empty()));
@@ -384,12 +413,15 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
     fill_block.ip = handle_pkt.ip;
     fill_block.cpu = handle_pkt.cpu;
     fill_block.instr_id = handle_pkt.instr_id;
+    fill_block.data_ptr = datastore_fwdptr;
+    data.invalid = 0;
+    data.skew = skew;
+    data.set = set;
+    data.way = way;
   }
 
   if (warmup_complete[handle_pkt.cpu] && (handle_pkt.cycle_enqueued != 0))
     total_miss_latency += current_cycle - handle_pkt.cycle_enqueued;
-
-  // TODO: handle skews here
 
   // update prefetcher
   cpu = handle_pkt.cpu;
@@ -405,6 +437,15 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   sim_access[handle_pkt.cpu][handle_pkt.type]++;
 
   return true;
+}
+
+uint64_t MIRAGE_CACHE::datastore_find_victim(){
+  uint64_t victim = rand() % datastore.size();
+  for (uint64_t i = 0; i<0; i++){
+    if (datastore[i].invalid)
+      return i;
+  }
+  return victim;
 }
 
 void MIRAGE_CACHE::operate()

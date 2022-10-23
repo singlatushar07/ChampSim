@@ -29,7 +29,7 @@ public:
 class MIRAGE_TAG : public BLOCK
 {
 public:
-  uint64_t* data_ptr = nullptr;
+  uint64_t data_ptr = NULL;
 };
 
 class MemoryRequestConsumer

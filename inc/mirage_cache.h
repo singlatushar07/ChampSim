@@ -37,16 +37,11 @@ public:
   uint64_t get_skew_address();
 };
 
-struct datapoint {
+struct datapoint{
+  bool invalid;
   uint64_t skew;
-  uint64_t skew_address;
-  uint64_t data;
-};
-
-class datastore
-{
-public:
-  std::vector<datapoint> data;
+  uint64_t way;
+  uint64_t set;
 };
 
 class MIRAGE_CACHE : public champsim::operable, public MemoryRequestConsumer, public MemoryRequestProducer
@@ -58,12 +53,13 @@ public:
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
 
   // Skews
-  std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY + NUM_EXTRA))};
+  std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY))};
   vector<uint64_t> keys{NUM_SKEWS};
   // std::vector<BLOCK> block{NUM_SET * NUM_WAY};
 
   // Datastore
-  std::vector<uint64_t> data{NUM_SET * NUM_WAY};
+  vector<datapoint> datastore{NUM_SET*(NUM_WAY-NUM_EXTRA)};
+  uint64_t datastore_find_victim();
 
   const uint32_t MAX_READ, MAX_WRITE;
   uint32_t reads_available_this_cycle, writes_available_this_cycle;
