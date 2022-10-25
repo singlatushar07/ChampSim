@@ -30,8 +30,8 @@ void MIRAGE_CACHE::handle_fill()
       uint32_t set = get_set(fill_mshr->address, keys[i]);
       auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
       auto set_end = std::next(set_begin, NUM_WAY);
-      auto count = std::count_if(set_begin, set_end, [](MIRAGE_TAG &tag) {return !tag.valid;});
-      if(count > max_invalid) {
+      auto count = std::count_if(set_begin, set_end, [](MIRAGE_TAG& tag) { return !tag.valid; });
+      if (count > max_invalid) {
         max_invalid = count;
         skew = i;
       }
@@ -97,34 +97,34 @@ void MIRAGE_CACHE::handle_writeback()
         break;
       }
     }
-    if(!hit) // MISS
+    if (!hit) // MISS
     {
       bool success;
       if (handle_pkt.type == RFO && handle_pkt.to_return.empty()) {
         success = readlike_miss(handle_pkt);
       } else {
-      // find victim
-      int32_t max_invalid = -1;
-      uint32_t skew = UINT32_MAX;
-      for (int i = 0; i < NUM_SKEWS; i++) {
-        uint32_t set = get_set(handle_pkt.address, keys[i]);
-        auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
-        auto set_end = std::next(set_begin, NUM_WAY);
-        auto count = std::count_if(set_begin, set_end, [](MIRAGE_TAG &tag) {return !tag.valid;});
-        if(count > max_invalid) {
-          max_invalid = count;
-          skew = i;
+        // find victim
+        int32_t max_invalid = -1;
+        uint32_t skew = UINT32_MAX;
+        for (int i = 0; i < NUM_SKEWS; i++) {
+          uint32_t set = get_set(handle_pkt.address, keys[i]);
+          auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
+          auto set_end = std::next(set_begin, NUM_WAY);
+          auto count = std::count_if(set_begin, set_end, [](MIRAGE_TAG& tag) { return !tag.valid; });
+          if (count > max_invalid) {
+            max_invalid = count;
+            skew = i;
+          }
         }
-      }
-      assert(skew != UINT32_MAX);
-      uint32_t set = get_set(handle_pkt.address, keys[skew]);
+        assert(skew != UINT32_MAX);
+        uint32_t set = get_set(handle_pkt.address, keys[skew]);
 
-      auto set_begin = std::next(std::begin(block[skew]), set * NUM_WAY);
-      auto set_end = std::next(set_begin, NUM_WAY);
-      auto first_inv = std::find_if_not(set_begin, set_end, is_valid<BLOCK>());
-      uint32_t way = std::distance(set_begin, first_inv);
+        auto set_begin = std::next(std::begin(block[skew]), set * NUM_WAY);
+        auto set_end = std::next(set_begin, NUM_WAY);
+        auto first_inv = std::find_if_not(set_begin, set_end, is_valid<BLOCK>());
+        uint32_t way = std::distance(set_begin, first_inv);
 
-      // Should never be true for mirage cache
+        // Should never be true for mirage cache
         if (way == NUM_WAY)
           way = impl_replacement_find_victim(handle_pkt.cpu, handle_pkt.instr_id, set, &block[skew].data()[set * NUM_WAY], handle_pkt.ip, handle_pkt.address,
                                              handle_pkt.type);
@@ -160,14 +160,14 @@ void MIRAGE_CACHE::handle_read()
     for (uint32_t skew = 0; skew < NUM_SKEWS; skew++) {
       uint32_t set = get_set(handle_pkt.address, keys[skew]);
       uint32_t way = get_way(handle_pkt.address, skew, set);
-      if(way < NUM_WAY) {
+      if (way < NUM_WAY) {
         hit = true;
         readlike_hit(skew, set, way, handle_pkt);
         break;
       }
     }
 
-    if(!hit) {
+    if (!hit) {
       bool success = readlike_miss(handle_pkt);
       if (!success)
         return;
@@ -192,14 +192,14 @@ void MIRAGE_CACHE::handle_prefetch()
     for (uint32_t skew = 0; skew < NUM_SKEWS; skew++) {
       uint32_t set = get_set(handle_pkt.address, keys[skew]);
       uint32_t way = get_way(handle_pkt.address, skew, set);
-      if(way < NUM_WAY) {
+      if (way < NUM_WAY) {
         hit = true;
         readlike_hit(skew, set, way, handle_pkt);
         break;
       }
     }
 
-    if(!hit) {
+    if (!hit) {
       bool success = readlike_miss(handle_pkt);
       if (!success)
         return;
@@ -232,8 +232,6 @@ void MIRAGE_CACHE::readlike_hit(std::size_t skew, std::size_t set, std::size_t w
     uint64_t pf_base_addr = (virtual_prefetch ? handle_pkt.v_address : handle_pkt.address) & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
     handle_pkt.pf_metadata = impl_prefetcher_cache_operate(pf_base_addr, handle_pkt.ip, 1, handle_pkt.type, handle_pkt.pf_metadata);
   }
-
-
 
   // update replacement policy
   impl_replacement_update_state(handle_pkt.cpu, set, way, hit_block.address, handle_pkt.ip, 0, handle_pkt.type, 1);
@@ -346,59 +344,61 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   assert(handle_pkt.type != WRITEBACK || !bypass);
 
   MIRAGE_TAG& fill_block = block[skew][set * NUM_WAY + way];
+  bool evicting_tag = fill_block.valid;
   bool evicting_global = is_datastore_full && !fill_block.valid;
   bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
   uint64_t evicting_address = 0;
   uint64_t datastore_fwdptr = fill_block.data_ptr;
 
   if (!bypass) {
-    if (evicting_dirty) {
-      PACKET writeback_packet;
-      writeback_packet.fill_level = lower_level->fill_level;
-      writeback_packet.cpu = handle_pkt.cpu;
-      writeback_packet.address = fill_block.address;
-      writeback_packet.data = fill_block.data;
-      writeback_packet.instr_id = handle_pkt.instr_id;
-      writeback_packet.ip = 0;
-      writeback_packet.type = WRITEBACK;
-      datastore_fwdptr = fill_block.data_ptr; // Get datastore ptr of evicted 
-      datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
-
-      auto result = lower_level->add_wq(&writeback_packet);
-      if (result == -2)
-        return false;
-    } 
-    else if (evicting_global) {
-      datastore_fwdptr = datastore_find_victim();
-      datapoint data = datastore[datastore_fwdptr];
-      MIRAGE_TAG& global_evict_block = block[data.skew][data.set * NUM_WAY + data.way];
-      bool evicting_dirty_global = !bypass && (lower_level != NULL) && global_evict_block.dirty;
-      // datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted 
-      datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
-      global_evict_block.valid = 0;
-      global_evict_block.dirty = 0;
-      if (evicting_dirty_global){
+    if (evicting_tag) {
+      if (evicting_dirty) {
         PACKET writeback_packet;
-        
         writeback_packet.fill_level = lower_level->fill_level;
         writeback_packet.cpu = handle_pkt.cpu;
-        writeback_packet.address = global_evict_block.address;
-        writeback_packet.data = global_evict_block.data;
+        writeback_packet.address = fill_block.address;
+        writeback_packet.data = fill_block.data;
         writeback_packet.instr_id = handle_pkt.instr_id;
         writeback_packet.ip = 0;
         writeback_packet.type = WRITEBACK;
+        datastore_fwdptr = fill_block.data_ptr; // Get datastore ptr of evicted
+        datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
 
         auto result = lower_level->add_wq(&writeback_packet);
         if (result == -2)
           return false;
       }
-    else {
+    } else {
       datastore_fwdptr = datastore_find_victim();
+      if (evicting_global) {
+
+        datapoint data = datastore[datastore_fwdptr];
+        MIRAGE_TAG& global_evict_block = block[data.skew][data.set * NUM_WAY + data.way];
+        bool evicting_dirty_global = !bypass && (lower_level != NULL) && global_evict_block.dirty;
+        // datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted
+        datastore[datastore_fwdptr].valid = 0; // Set datastore invalid
+        global_evict_block.valid = 0;
+        global_evict_block.dirty = 0;
+        if (evicting_dirty_global) {
+          PACKET writeback_packet;
+
+          writeback_packet.fill_level = lower_level->fill_level;
+          writeback_packet.cpu = handle_pkt.cpu;
+          writeback_packet.address = global_evict_block.address;
+          writeback_packet.data = global_evict_block.data;
+          writeback_packet.instr_id = handle_pkt.instr_id;
+          writeback_packet.ip = 0;
+          writeback_packet.type = WRITEBACK;
+
+          auto result = lower_level->add_wq(&writeback_packet);
+          if (result == -2)
+            return false;
+        }
+      }
     }
-      
-    }
-    // HAS TO DO WITH PREFETCHER
-    {
+  }
+  // HAS TO DO WITH PREFETCHER
+  {
     if (ever_seen_data)
       evicting_address = fill_block.address & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
     else
@@ -409,49 +409,49 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
 
     if (handle_pkt.type == PREFETCH)
       pf_fill++;
-    }
-    
-    datapoint data = datastore[datastore_fwdptr];
-    fill_block.valid = true;
-    fill_block.prefetch = (handle_pkt.type == PREFETCH && handle_pkt.pf_origin_level == fill_level);
-    fill_block.dirty = (handle_pkt.type == WRITEBACK || (handle_pkt.type == RFO && handle_pkt.to_return.empty()));
-    fill_block.address = handle_pkt.address;
-    fill_block.v_address = handle_pkt.v_address;
-    fill_block.data = handle_pkt.data;
-    fill_block.ip = handle_pkt.ip;
-    fill_block.cpu = handle_pkt.cpu;
-    fill_block.instr_id = handle_pkt.instr_id;
-    fill_block.data_ptr = datastore_fwdptr;
-    data.valid = 1;
-    data.skew = skew;
-    data.set = set;
-    data.way = way;
-  }
+  
 
-  if (warmup_complete[handle_pkt.cpu] && (handle_pkt.cycle_enqueued != 0))
-    total_miss_latency += current_cycle - handle_pkt.cycle_enqueued;
+  datapoint data = datastore[datastore_fwdptr];
+  fill_block.valid = true;
+  fill_block.prefetch = (handle_pkt.type == PREFETCH && handle_pkt.pf_origin_level == fill_level);
+  fill_block.dirty = (handle_pkt.type == WRITEBACK || (handle_pkt.type == RFO && handle_pkt.to_return.empty()));
+  fill_block.address = handle_pkt.address;
+  fill_block.v_address = handle_pkt.v_address;
+  fill_block.data = handle_pkt.data;
+  fill_block.ip = handle_pkt.ip;
+  fill_block.cpu = handle_pkt.cpu;
+  fill_block.instr_id = handle_pkt.instr_id;
+  fill_block.data_ptr = datastore_fwdptr;
+  data.valid = 1;
+  data.skew = skew;
+  data.set = set;
+  data.way = way;
+}
 
-  // update prefetcher
-  cpu = handle_pkt.cpu;
-  handle_pkt.pf_metadata =
-      impl_prefetcher_cache_fill((virtual_prefetch ? handle_pkt.v_address : handle_pkt.address) & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS), set, way,
-                                 handle_pkt.type == PREFETCH, evicting_address, handle_pkt.pf_metadata);
+if (warmup_complete[handle_pkt.cpu] && (handle_pkt.cycle_enqueued != 0))
+  total_miss_latency += current_cycle - handle_pkt.cycle_enqueued;
 
-  // update replacement policy
-  impl_replacement_update_state(handle_pkt.cpu, set, way, handle_pkt.address, handle_pkt.ip, 0, handle_pkt.type, 0);
+// update prefetcher
+cpu = handle_pkt.cpu;
+handle_pkt.pf_metadata =
+    impl_prefetcher_cache_fill((virtual_prefetch ? handle_pkt.v_address : handle_pkt.address) & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS), set, way,
+                               handle_pkt.type == PREFETCH, evicting_address, handle_pkt.pf_metadata);
 
-  // COLLECT STATS
-  sim_miss[handle_pkt.cpu][handle_pkt.type]++;
-  sim_access[handle_pkt.cpu][handle_pkt.type]++;
+// update replacement policy
+impl_replacement_update_state(handle_pkt.cpu, set, way, handle_pkt.address, handle_pkt.ip, 0, handle_pkt.type, 0);
 
-  return true;
+// COLLECT STATS
+sim_miss[handle_pkt.cpu][handle_pkt.type]++;
+sim_access[handle_pkt.cpu][handle_pkt.type]++;
+
+return true;
 }
 
 uint64_t MIRAGE_CACHE::datastore_find_victim(){
   // std::cout << "Datastore victim" << datastore.size() << std::endl;
   uint64_t victim = rand() % datastore.size();
-  if (!is_datastore_full){
-    for (uint64_t i = 0; i<datastore.size(); i++){
+  if (!is_datastore_full) {
+    for (uint64_t i = 0; i < datastore.size(); i++) {
       if (!datastore[i].valid)
         return i;
     }
