@@ -346,7 +346,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   assert(handle_pkt.type != WRITEBACK || !bypass);
 
   MIRAGE_TAG& fill_block = block[skew][set * NUM_WAY + way];
-  bool evicting_global = is_datastore_full;
+  bool evicting_global = is_datastore_full && !fill_block.valid;
   bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
   uint64_t evicting_address = 0;
   uint64_t datastore_fwdptr = fill_block.data_ptr;
@@ -367,16 +367,19 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
       auto result = lower_level->add_wq(&writeback_packet);
       if (result == -2)
         return false;
-    } else if (evicting_global) {
+    } 
+    else if (evicting_global) {
       datastore_fwdptr = datastore_find_victim();
       datapoint data = datastore[datastore_fwdptr];
       MIRAGE_TAG& global_evict_block = block[data.skew][data.set * NUM_WAY + data.way];
-      PACKET writeback_packet;
       bool evicting_dirty_global = !bypass && (lower_level != NULL) && global_evict_block.dirty;
-      datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted 
+      // datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted 
       datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
-
+      global_evict_block.valid = 0;
+      
       if (evicting_dirty_global){
+        PACKET writeback_packet;
+
         writeback_packet.fill_level = lower_level->fill_level;
         writeback_packet.cpu = handle_pkt.cpu;
         writeback_packet.address = global_evict_block.address;
@@ -404,6 +407,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
     if (handle_pkt.type == PREFETCH)
       pf_fill++;
     }
+    
     datapoint data = datastore[datastore_fwdptr];
     fill_block.valid = true;
     fill_block.prefetch = (handle_pkt.type == PREFETCH && handle_pkt.pf_origin_level == fill_level);

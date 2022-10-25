@@ -21,7 +21,7 @@ void MIRAGE_CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t
   if (hit && type == WRITEBACK)
     return;
 
-  auto begin = std::next(block.begin(), set * NUM_WAY);
+  auto begin = std::next(block[0].begin(), set * NUM_WAY);
   auto end = std::next(begin, NUM_WAY);
   uint32_t hit_lru = std::next(begin, way)->lru;
   std::for_each(begin, end, [hit_lru](BLOCK& x) {
