@@ -29,7 +29,7 @@ public:
 class MIRAGE_TAG : public BLOCK
 {
 public:
-  uint64_t data_ptr = NULL;
+  uint64_t data_ptr = UINT64_MAX;
 };
 
 class MemoryRequestConsumer

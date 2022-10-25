@@ -5,6 +5,7 @@
 
 #include "champsim.h"
 #include "champsim_constants.h"
+#include "prince_ref.h"
 #include "util.h"
 #include "vmem.h"
 
@@ -481,7 +482,11 @@ void MIRAGE_CACHE::operate_reads()
   VAPQ.operate();
 }
 
-uint32_t MIRAGE_CACHE::get_set(uint64_t address, uint64_t key) { return ((address >> OFFSET_BITS) & bitmask(lg2(NUM_SET))); }
+uint32_t MIRAGE_CACHE::get_set(uint64_t address, std::pair<uint64_t, uint64_t> key)
+{
+  uint64_t hashed_address = prince_enc_dec_uint64(address, key.first, key.second, 0);
+  return ((hashed_address >> OFFSET_BITS) & bitmask(lg2(NUM_SET)));
+}
 
 uint32_t MIRAGE_CACHE::get_way(uint64_t address, std::size_t skew, uint32_t set)
 {

@@ -54,7 +54,7 @@ public:
 
   // Skews
   std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY))};
-  vector<uint64_t> keys{NUM_SKEWS};
+  std::vector<std::pair<uint64_t, uint64_t>> keys{NUM_SKEWS};
   // std::vector<BLOCK> block{NUM_SET * NUM_WAY};
 
   // Datastore
@@ -101,7 +101,7 @@ public:
   uint32_t get_occupancy(uint8_t queue_type, uint64_t address) override;
   uint32_t get_size(uint8_t queue_type, uint64_t address) override;
 
-  uint32_t get_set(uint64_t address, uint64_t key);
+  uint32_t get_set(uint64_t address, std::pair<uint64_t, uint64_t> key);
   uint32_t get_way(uint64_t address, std::size_t skew, uint32_t set);
 
   int invalidate_entry(uint64_t inval_addr, std::size_t skew);
@@ -138,6 +138,10 @@ public:
         MAX_WRITE(max_write), prefetch_as_load(pref_load), match_offset_bits(wq_full_addr), virtual_prefetch(va_pref), pref_activate_mask(pref_act_mask),
         repl_type(repl), pref_type(pref)
   {
+    for (int i = 0; i < NUM_SKEWS; i++) {
+      keys[i].first = ((long long)rand() << 32) | rand();
+      keys[i].second = ((long long)rand() << 32) | rand();
+    }
   }
 };
 
