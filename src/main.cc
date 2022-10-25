@@ -31,7 +31,7 @@ champsim::deprecated_clock_cycle current_core_cycle;
 extern MEMORY_CONTROLLER DRAM;
 extern VirtualMemory vmem;
 extern std::array<O3_CPU*, NUM_CPUS> ooo_cpu;
-extern std::array<CACHE*, NUM_CACHES> caches;
+extern std::array<CACHE*, NUM_CACHES - 1> caches;
 extern MIRAGE_CACHE* llc_cache;
 extern std::array<champsim::operable*, NUM_OPERABLES> operables;
 

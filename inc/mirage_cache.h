@@ -58,7 +58,7 @@ public:
   // std::vector<BLOCK> block{NUM_SET * NUM_WAY};
 
   // Datastore
-  vector<datapoint> datastore{NUM_SET*(NUM_WAY-NUM_EXTRA)};
+  vector<datapoint> datastore{NUM_SKEWS * NUM_SET * (NUM_WAY - NUM_EXTRA)};
   uint64_t datastore_find_victim();
   bool is_datastore_full = false;
   uint64_t datastore_fill_level;
