@@ -376,10 +376,10 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
       // datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted 
       datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
       global_evict_block.valid = 0;
-      
+      global_evict_block.dirty = 0;
       if (evicting_dirty_global){
         PACKET writeback_packet;
-
+        
         writeback_packet.fill_level = lower_level->fill_level;
         writeback_packet.cpu = handle_pkt.cpu;
         writeback_packet.address = global_evict_block.address;
@@ -392,6 +392,9 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
         if (result == -2)
           return false;
       }
+    else {
+      datastore_fwdptr = datastore_find_victim();
+    }
       
     }
     // HAS TO DO WITH PREFETCHER
