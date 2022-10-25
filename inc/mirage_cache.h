@@ -38,7 +38,7 @@ public:
 };
 
 struct datapoint{
-  bool invalid;
+  bool valid;
   uint64_t skew;
   uint64_t way;
   uint64_t set;
@@ -60,6 +60,8 @@ public:
   // Datastore
   vector<datapoint> datastore{NUM_SET*(NUM_WAY-NUM_EXTRA)};
   uint64_t datastore_find_victim();
+  bool is_datastore_full = false;
+  uint64_t datastore_fill_level;
 
   const uint32_t MAX_READ, MAX_WRITE;
   uint32_t reads_available_this_cycle, writes_available_this_cycle;

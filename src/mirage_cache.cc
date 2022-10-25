@@ -346,7 +346,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   assert(handle_pkt.type != WRITEBACK || !bypass);
 
   MIRAGE_TAG& fill_block = block[skew][set * NUM_WAY + way];
-  bool evicting_global = is_datastore_full();
+  bool evicting_global = is_datastore_full;
   bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
   uint64_t evicting_address = 0;
   uint64_t datastore_fwdptr = fill_block.data_ptr;
@@ -362,21 +362,19 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
       writeback_packet.ip = 0;
       writeback_packet.type = WRITEBACK;
       datastore_fwdptr = fill_block.data_ptr; // Get datastore ptr of evicted 
-      datastore[datastore_fwdptr].invalid = 1;  // Set datastore invalid
+      datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
 
       auto result = lower_level->add_wq(&writeback_packet);
       if (result == -2)
         return false;
-    }
-
-    if (evicting_global) {
+    } else if (evicting_global) {
       datastore_fwdptr = datastore_find_victim();
       datapoint data = datastore[datastore_fwdptr];
       MIRAGE_TAG& global_evict_block = block[data.skew][data.set * NUM_WAY + data.way];
       PACKET writeback_packet;
       bool evicting_dirty_global = !bypass && (lower_level != NULL) && global_evict_block.dirty;
       datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted 
-      datastore[datastore_fwdptr].invalid = 1;  // Set datastore invalid
+      datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
 
       if (evicting_dirty_global){
         writeback_packet.fill_level = lower_level->fill_level;
@@ -417,7 +415,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
     fill_block.cpu = handle_pkt.cpu;
     fill_block.instr_id = handle_pkt.instr_id;
     fill_block.data_ptr = datastore_fwdptr;
-    data.invalid = 0;
+    data.valid = 1;
     data.skew = skew;
     data.set = set;
     data.way = way;
@@ -444,9 +442,12 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
 
 uint64_t MIRAGE_CACHE::datastore_find_victim(){
   uint64_t victim = rand() % datastore.size();
-  for (uint64_t i = 0; i<datastore.size(); i++){
-    if (datastore[i].invalid)
-      return i;
+  if (!is_datastore_full){
+    for (uint64_t i = 0; i<datastore.size(); i++){
+      if (!datastore[i].valid)
+        return i;
+    }
+    is_datastore_full = true;
   }
   return victim;
 }
