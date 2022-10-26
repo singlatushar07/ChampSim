@@ -52,6 +52,8 @@ public:
   const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 0;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
 
+  std::mt19937 gen(0); //Standard mersenne_twister_engine seeded with rd()
+
   // Skews
   std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY))};
   std::vector<std::pair<uint64_t, uint64_t>> keys{NUM_SKEWS};
@@ -141,8 +143,8 @@ public:
         repl_type(repl), pref_type(pref)
   {
     for (int i = 0; i < NUM_SKEWS; i++) {
-      keys[i].first = ((long long)rand() << 32) | rand();
-      keys[i].second = ((long long)rand() << 32) | rand();
+      keys[i].first = ((long long)gen() << 32) | gen();
+      keys[i].second = ((long long)gen() << 32) | gen();
     }
   }
 };

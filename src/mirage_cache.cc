@@ -446,7 +446,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
 
 uint64_t MIRAGE_CACHE::datastore_find_victim(){
   // std::cout << "Datastore victim" << datastore.size() << std::endl;
-  uint64_t victim = rand() % datastore.size();
+  uint64_t victim = gen() % datastore.size();
   if (!is_datastore_full) {
     for (uint64_t i = 0; i < datastore.size(); i++) {
       if (!datastore[i].valid)
