@@ -344,14 +344,13 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   assert(handle_pkt.type != WRITEBACK || !bypass);
 
   MIRAGE_TAG& fill_block = block[skew][set * NUM_WAY + way];
-  bool evicting_tag = fill_block.valid;
   bool evicting_global = is_datastore_full && !fill_block.valid;
   bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
   uint64_t evicting_address = 0;
   uint64_t datastore_fwdptr = fill_block.data_ptr;
 
   if (!bypass) {
-    if (evicting_tag) {
+    if (fill_block.valid) {
       if (evicting_dirty) {
         PACKET writeback_packet;
         writeback_packet.fill_level = lower_level->fill_level;
@@ -374,7 +373,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
 
         datapoint data = datastore[datastore_fwdptr];
         MIRAGE_TAG& global_evict_block = block[data.skew][data.set * NUM_WAY + data.way];
-        bool evicting_dirty_global = !bypass && (lower_level != NULL) && global_evict_block.dirty;
+        bool evicting_dirty_global = (lower_level != NULL) && global_evict_block.dirty;
         // datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted
         datastore[datastore_fwdptr].valid = 0; // Set datastore invalid
         global_evict_block.valid = 0;
@@ -398,20 +397,18 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
     }
   }
   // HAS TO DO WITH PREFETCHER
-  {
-    if (ever_seen_data)
-      evicting_address = fill_block.address & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
-    else
-      evicting_address = fill_block.v_address & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
+  if (ever_seen_data)
+    evicting_address = fill_block.address & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
+  else
+    evicting_address = fill_block.v_address & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS);
 
-    if (fill_block.prefetch)
-      pf_useless++;
+  if (fill_block.prefetch)
+    pf_useless++;
 
-    if (handle_pkt.type == PREFETCH)
-      pf_fill++;
-  
+  if (handle_pkt.type == PREFETCH)
+    pf_fill++;
 
-  datapoint data = datastore[datastore_fwdptr];
+  datapoint &data = datastore[datastore_fwdptr];
   fill_block.valid = true;
   fill_block.prefetch = (handle_pkt.type == PREFETCH && handle_pkt.pf_origin_level == fill_level);
   fill_block.dirty = (handle_pkt.type == WRITEBACK || (handle_pkt.type == RFO && handle_pkt.to_return.empty()));
@@ -426,25 +423,25 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   data.skew = skew;
   data.set = set;
   data.way = way;
-}
 
-if (warmup_complete[handle_pkt.cpu] && (handle_pkt.cycle_enqueued != 0))
-  total_miss_latency += current_cycle - handle_pkt.cycle_enqueued;
 
-// update prefetcher
-cpu = handle_pkt.cpu;
-handle_pkt.pf_metadata =
-    impl_prefetcher_cache_fill((virtual_prefetch ? handle_pkt.v_address : handle_pkt.address) & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS), set, way,
-                               handle_pkt.type == PREFETCH, evicting_address, handle_pkt.pf_metadata);
+  if (warmup_complete[handle_pkt.cpu] && (handle_pkt.cycle_enqueued != 0))
+    total_miss_latency += current_cycle - handle_pkt.cycle_enqueued;
 
-// update replacement policy
-impl_replacement_update_state(handle_pkt.cpu, set, way, handle_pkt.address, handle_pkt.ip, 0, handle_pkt.type, 0);
+  // update prefetcher
+  cpu = handle_pkt.cpu;
+  handle_pkt.pf_metadata =
+      impl_prefetcher_cache_fill((virtual_prefetch ? handle_pkt.v_address : handle_pkt.address) & ~bitmask(match_offset_bits ? 0 : OFFSET_BITS), set, way,
+                                handle_pkt.type == PREFETCH, evicting_address, handle_pkt.pf_metadata);
 
-// COLLECT STATS
-sim_miss[handle_pkt.cpu][handle_pkt.type]++;
-sim_access[handle_pkt.cpu][handle_pkt.type]++;
+  // update replacement policy
+  impl_replacement_update_state(handle_pkt.cpu, set, way, handle_pkt.address, handle_pkt.ip, 0, handle_pkt.type, 0);
 
-return true;
+  // COLLECT STATS
+  sim_miss[handle_pkt.cpu][handle_pkt.type]++;
+  sim_access[handle_pkt.cpu][handle_pkt.type]++;
+
+  return true;
 }
 
 uint64_t MIRAGE_CACHE::datastore_find_victim(){
