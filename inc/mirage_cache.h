@@ -5,7 +5,7 @@
 #include <list>
 #include <string>
 #include <vector>
-
+#include <random>
 #include "champsim.h"
 #include "delay_queue.hpp"
 #include "memory_class.h"
@@ -49,10 +49,10 @@ class MIRAGE_CACHE : public champsim::operable, public MemoryRequestConsumer, pu
 public:
   uint32_t cpu;
   const std::string NAME;
-  const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 0;
+  const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 6;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
 
-  std::mt19937 gen(0); //Standard mersenne_twister_engine seeded with rd()
+  std::mt19937 gen;
 
   // Skews
   std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY))};
@@ -142,6 +142,7 @@ public:
         MAX_WRITE(max_write), prefetch_as_load(pref_load), match_offset_bits(wq_full_addr), virtual_prefetch(va_pref), pref_activate_mask(pref_act_mask),
         repl_type(repl), pref_type(pref)
   {
+    gen.seed(0);
     for (int i = 0; i < NUM_SKEWS; i++) {
       keys[i].first = ((long long)gen() << 32) | gen();
       keys[i].second = ((long long)gen() << 32) | gen();

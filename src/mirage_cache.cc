@@ -46,9 +46,11 @@ void MIRAGE_CACHE::handle_fill()
     uint32_t way = std::distance(set_begin, first_inv);
 
     // Should never be true for mirage cache
-    if (way == NUM_WAY)
+    if (way == NUM_WAY){
+      std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
       way = impl_replacement_find_victim(fill_mshr->cpu, fill_mshr->instr_id, set, &block[skew].data()[set * NUM_WAY], fill_mshr->ip, fill_mshr->address,
                                          fill_mshr->type);
+    }
 
     bool success = filllike_miss(skew, set, way, *fill_mshr);
     if (!success)
@@ -125,9 +127,11 @@ void MIRAGE_CACHE::handle_writeback()
         uint32_t way = std::distance(set_begin, first_inv);
 
         // Should never be true for mirage cache
-        if (way == NUM_WAY)
+        if (way == NUM_WAY){
+          std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
           way = impl_replacement_find_victim(handle_pkt.cpu, handle_pkt.instr_id, set, &block[skew].data()[set * NUM_WAY], handle_pkt.ip, handle_pkt.address,
                                              handle_pkt.type);
+        }
 
         success = filllike_miss(skew, set, way, handle_pkt);
       }
