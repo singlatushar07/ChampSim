@@ -26,7 +26,7 @@ void MIRAGE_CACHE::handle_fill()
     // find victim
     int32_t max_invalid = -1;
     uint32_t skew = UINT32_MAX;
-    for (int i = 0; i < NUM_SKEWS; i++) {
+    for (uint32_t i = 0; i < NUM_SKEWS; i++) {
       uint32_t set = get_set(fill_mshr->address, keys[i]);
       auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
       auto set_end = std::next(set_begin, NUM_WAY);
@@ -108,7 +108,7 @@ void MIRAGE_CACHE::handle_writeback()
         // find victim
         int32_t max_invalid = -1;
         uint32_t skew = UINT32_MAX;
-        for (int i = 0; i < NUM_SKEWS; i++) {
+        for (uint32_t i = 0; i < NUM_SKEWS; i++) {
           uint32_t set = get_set(handle_pkt.address, keys[i]);
           auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
           auto set_end = std::next(set_begin, NUM_WAY);
@@ -348,7 +348,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   assert(handle_pkt.type != WRITEBACK || !bypass);
 
   MIRAGE_TAG& fill_block = block[skew][set * NUM_WAY + way];
-  bool evicting_global = is_datastore_full && !fill_block.valid;
+  bool evicting_global = is_datastore_full() && !fill_block.valid;
   bool evicting_dirty = !bypass && (lower_level != NULL) && fill_block.dirty;
   uint64_t evicting_address = 0;
   uint64_t datastore_fwdptr = fill_block.data_ptr;
@@ -366,7 +366,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
         writeback_packet.type = WRITEBACK;
         datastore_fwdptr = fill_block.data_ptr; // Get datastore ptr of evicted
         datastore[datastore_fwdptr].valid = 0;  // Set datastore invalid
-
+        datastore_fill_level--;                 // Decrement datastore fill level
         auto result = lower_level->add_wq(&writeback_packet);
         if (result == -2)
           return false;
@@ -380,6 +380,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
         bool evicting_dirty_global = (lower_level != NULL) && global_evict_block.dirty;
         // datastore_fwdptr = global_evict_block.data_ptr; // Get datastore ptr of evicted
         datastore[datastore_fwdptr].valid = 0; // Set datastore invalid
+        datastore_fill_level--;
         global_evict_block.valid = 0;
         global_evict_block.dirty = 0;
         if (evicting_dirty_global) {
@@ -427,7 +428,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   data.skew = skew;
   data.set = set;
   data.way = way;
-
+  datastore_fill_level++;
 
   if (warmup_complete[handle_pkt.cpu] && (handle_pkt.cycle_enqueued != 0))
     total_miss_latency += current_cycle - handle_pkt.cycle_enqueued;
@@ -448,16 +449,19 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
   return true;
 }
 
+bool MIRAGE_CACHE::is_datastore_full(){
+  return datastore.size() == datastore_fill_level;
+}
+
 uint64_t MIRAGE_CACHE::datastore_find_victim(){
   // std::cout << "Datastore victim" << datastore.size() << std::endl;
-  uint64_t victim = gen() % datastore.size();
-  if (!is_datastore_full) {
+  if (!is_datastore_full()) {
     for (uint64_t i = 0; i < datastore.size(); i++) {
       if (!datastore[i].valid)
         return i;
     }
-    is_datastore_full = true;
   }
+  uint64_t victim = gen() % datastore.size();
   return victim;
 }
 

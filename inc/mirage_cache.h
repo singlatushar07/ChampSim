@@ -52,7 +52,8 @@ public:
   const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 6;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
 
-  std::mt19937 gen;
+  std::mt19937 gen{0}; //Standard mersenne_twister_engine seeded with rd()
+
 
   // Skews
   std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY))};
@@ -62,8 +63,8 @@ public:
   // Datastore
   vector<datapoint> datastore{NUM_SKEWS * NUM_SET * (NUM_WAY - NUM_EXTRA)};
   uint64_t datastore_find_victim();
-  bool is_datastore_full = false;
-  uint64_t datastore_fill_level;
+  bool is_datastore_full();
+  uint64_t datastore_fill_level = 0;
 
   const uint32_t MAX_READ, MAX_WRITE;
   uint32_t reads_available_this_cycle, writes_available_this_cycle;
@@ -143,7 +144,7 @@ public:
         repl_type(repl), pref_type(pref)
   {
     gen.seed(0);
-    for (int i = 0; i < NUM_SKEWS; i++) {
+    for (uint32_t i = 0; i < NUM_SKEWS; i++) {
       keys[i].first = ((long long)gen() << 32) | gen();
       keys[i].second = ((long long)gen() << 32) | gen();
     }
