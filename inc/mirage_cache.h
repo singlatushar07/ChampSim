@@ -52,8 +52,7 @@ public:
   const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 6;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
 
-  std::mt19937 gen{0}; //Standard mersenne_twister_engine seeded with rd()
-
+  std::mt19937 gen;
 
   // Skews
   std::vector<std::vector<MIRAGE_TAG>> block{NUM_SKEWS, std::vector<MIRAGE_TAG>(NUM_SET*(NUM_WAY))};
