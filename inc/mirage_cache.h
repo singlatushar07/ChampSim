@@ -17,15 +17,14 @@
 
 extern std::array<O3_CPU*, NUM_CPUS> ooo_cpu;
 
-class TAG
-{
-public:
-  bool valid = false, prefetch = false, dirty = false;
-
-  uint64_t address = 0, v_address = 0, tag = 0, data_ptr = 0, ip = 0, cpu = 0, instr_id = 0;
-
-  // replacement state
-  uint32_t lru = std::numeric_limits<uint32_t>::max() >> 1;
+struct tag_addr {
+  uint64_t skew;
+  uint64_t set;
+  uint64_t way;
+  tag_addr(uint64_t skew, uint64_t set, uint64_t way): skew(skew), set(set), way(way) {}
+  bool operator!=(tag_addr& other){
+    return skew != other.skew || set != other.set || way != other.way;
+  }
 };
 
 class SKEW
@@ -51,6 +50,7 @@ public:
   const std::string NAME;
   const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 6;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
+  const uint32_t MAX_HEIGHT;
 
   std::mt19937 gen;
 
@@ -127,6 +127,8 @@ public:
   bool should_activate_prefetcher(int type);
 
   void print_deadlock() override;
+
+  bool cuckoo_relocate(int height, tag_addr t);
 
 #include "cache_modules.inc"
 

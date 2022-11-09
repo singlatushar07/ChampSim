@@ -69,6 +69,59 @@ void MIRAGE_CACHE::handle_fill()
   }
 }
 
+bool MIRAGE_CACHE::cuckoo_relocate(int height, tag_addr t){
+  if(!height)return false;
+  auto addr = block[t.skew][t.set * NUM_WAY + t.way].address;
+  std::vector<tag_addr> candidates;
+
+  int32_t max_invalid = -1;
+  uint32_t skew = UINT32_MAX;
+  for (uint32_t i = 0; i < NUM_SKEWS; i++) {
+    uint32_t set = get_set(addr, keys[i]);
+    for(int j = 0; j < NUM_WAY; j++){
+      if(tag_addr(i, set, j) != t){
+        candidates.emplace_back(i, set, j);
+      }
+    }
+    auto set_begin = std::next(std::begin(block[i]), set * NUM_WAY);
+    auto set_end = std::next(set_begin, NUM_WAY);
+    auto count = std::count_if(set_begin, set_end, [](MIRAGE_TAG& tag) { return !tag.valid; });
+    if (count > max_invalid) {
+      max_invalid = count;
+      skew = i;
+    }
+  }
+  assert(skew != UINT32_MAX);
+  if(max_invalid == 0){
+    int n = candidates.size();
+    int idx = gen() % n;
+    tag_addr tmp = candidates[idx];
+    bool success = cuckoo_relocate(height-1, tmp);
+    if(!success)
+      return false;
+    block[tmp.skew][tmp.set * NUM_WAY + tmp.way] = block[t.skew][t.set * NUM_WAY + t.way];
+    auto &data_entry = datastore[block[tmp.skew][tmp.set * NUM_WAY + tmp.way].data_ptr];
+    data_entry.skew = tmp.skew;
+    data_entry.set = tmp.set;
+    data_entry.way = tmp.way;
+  } else {
+    uint32_t set = get_set(addr, keys[t.skew]);
+
+    auto set_begin = std::next(std::begin(block[t.skew]), set * NUM_WAY);
+    auto set_end = std::next(set_begin, NUM_WAY);
+    auto first_inv = std::find_if_not(set_begin, set_end, is_valid<BLOCK>());
+    uint32_t way = std::distance(set_begin, first_inv);
+    assert(way != NUM_WAY);
+
+    block[skew][set * NUM_WAY + way] = block[t.skew][t.set * NUM_WAY + t.way];
+    auto &data_entry = datastore[block[skew][set * NUM_WAY + way].data_ptr];
+    data_entry.skew = skew;
+    data_entry.set = set;
+    data_entry.way = way;
+  }
+  return true;
+}
+
 void MIRAGE_CACHE::handle_writeback()
 {
   while (writes_available_this_cycle > 0) {
@@ -128,9 +181,12 @@ void MIRAGE_CACHE::handle_writeback()
 
         // Should never be true for mirage cache
         if (way == NUM_WAY){
-          std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
-          way = impl_replacement_find_victim(handle_pkt.cpu, handle_pkt.instr_id, set, &block[skew].data()[set * NUM_WAY], handle_pkt.ip, handle_pkt.address,
+          skew = cuckoo_relocate(MAX_HEIGHT, handle_pkt.address);
+          if(skew == -1){
+            std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+            way = impl_replacement_find_victim(handle_pkt.cpu, handle_pkt.instr_id, set, &block[skew].data()[set * NUM_WAY], handle_pkt.ip, handle_pkt.address,
                                              handle_pkt.type);
+          }
         }
 
         success = filllike_miss(skew, set, way, handle_pkt);
@@ -332,7 +388,7 @@ bool MIRAGE_CACHE::readlike_miss(PACKET& handle_pkt)
 
 bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t way, PACKET& handle_pkt)
 {
-  DP(if (warmup_complete[handle_pkt.cpu]) {
+  DP(if (warmup_complete[handle_pkt.cpu]){
     std::cout << "[" << NAME << "] " << __func__ << " miss";
     std::cout << " instr_id: " << handle_pkt.instr_id << " address: " << std::hex << (handle_pkt.address >> OFFSET_BITS);
     std::cout << " full_addr: " << handle_pkt.address;
@@ -341,7 +397,7 @@ bool MIRAGE_CACHE::filllike_miss(std::size_t skew, std::size_t set, std::size_t 
     std::cout << " cycle: " << current_cycle << std::endl;
   });
 
-  bool bypass = (way == NUM_WAY);
+  bool bypass = (way == NUM_WAY) ;
 #ifndef LLC_BYPASS
   assert(!bypass);
 #endif
