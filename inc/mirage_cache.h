@@ -50,7 +50,7 @@ public:
   const std::string NAME;
   const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 6;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
-  const uint32_t MAX_HEIGHT;
+  const uint32_t MAX_HEIGHT = 2;
 
   std::mt19937 gen;
 
