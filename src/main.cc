@@ -108,6 +108,9 @@ void print_roi_stats(uint32_t cpu, MIRAGE_CACHE* cache)
     // cout << " AVERAGE MISS LATENCY: " <<
     // (cache->total_miss_latency)/TOTAL_MISS << " cycles " <<
     // cache->total_miss_latency << "/" << TOTAL_MISS<< endl;
+    cout << " CUCKOO INVOKATIONS: " << cache->cnt_cuckoo_invokation << "\n";
+    cout << " CUCKOO SUCCESS: " << cache->cnt_cuckoo_success << "\n";
+    cout << " SET ASSOCIATIVE EVICTIONS: " << cache->cnt_sae << "\n";
   }
 }
 void print_roi_stats(uint32_t cpu, CACHE* cache)
@@ -187,6 +190,10 @@ void print_sim_stats(uint32_t cpu, MIRAGE_CACHE* cache)
     cout << " WRITEBACK ACCESS: " << setw(10) << cache->sim_access[cpu][3] << "  HIT: " << setw(10) << cache->sim_hit[cpu][3] << "  MISS: " << setw(10)
          << cache->sim_miss[cpu][3] << endl;
   }
+  cout << " CUCKOO INVOKATIONS: " << cache->cnt_cuckoo_invokation << "\n";
+  cout << " CUCKOO SUCCESS: " << cache->cnt_cuckoo_success << "\n";
+  cout << " SET ASSOCIATIVE EVICTIONS: " << cache->cnt_sae << "\n";
+
 }
 void print_sim_stats(uint32_t cpu, CACHE* cache)
 {
@@ -316,9 +323,12 @@ void reset_cache_stats(uint32_t cpu, MIRAGE_CACHE* cache)
   for (uint32_t i = 0; i < NUM_TYPES; i++) {
     cache->sim_access[cpu][i] = 0;
     cache->sim_hit[cpu][i] = 0;
-    cache->sim_miss[cpu][i] = 0;
+    cache->sim_miss[cpu][i] = 0;    
   }
 
+  cache->cnt_cuckoo_invokation = 0;
+  cache->cnt_cuckoo_success = 0;
+  cache->cnt_sae = 0;
   cache->pf_requested = 0;
   cache->pf_issued = 0;
   cache->pf_useful = 0;
@@ -343,6 +353,7 @@ void reset_cache_stats(uint32_t cpu, CACHE* cache)
     cache->sim_access[cpu][i] = 0;
     cache->sim_hit[cpu][i] = 0;
     cache->sim_miss[cpu][i] = 0;
+    
   }
 
   cache->pf_requested = 0;

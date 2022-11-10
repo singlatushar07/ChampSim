@@ -47,9 +47,33 @@ void MIRAGE_CACHE::handle_fill()
 
     // Should never be true for mirage cache
     if (way == NUM_WAY) {
-      std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
-      way = impl_replacement_find_victim(fill_mshr->cpu, fill_mshr->instr_id, set, &block[skew].data()[set * NUM_WAY], fill_mshr->ip, fill_mshr->address,
+      // std::cout << "\n\nCUCKOO_RELOCATION_INVOKED\n" << endl;
+      cnt_cuckoo_invokation++;
+      uint32_t sk = UINT32_MAX;
+      auto addr = fill_mshr->address;
+      vector<tag_addr> candidates;
+      for (uint32_t i = 0; i < NUM_SKEWS; i++) {
+        uint32_t st = get_set(addr, keys[i]);
+        for (int j = 0; j < NUM_WAY; j++) {
+          candidates.emplace_back(i, st, j);
+        }
+      }
+      assert(candidates.size() == NUM_SKEWS * NUM_WAY);
+      uint32_t idx = gen() % (NUM_SKEWS * NUM_WAY);
+      auto req_addr = candidates[idx];
+      bool success = cuckoo_relocate(MAX_HEIGHT, req_addr);
+      if (!success) {
+        // std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+        cnt_sae++;
+        way = impl_replacement_find_victim(fill_mshr->cpu, fill_mshr->instr_id, set, &block[skew].data()[set * NUM_WAY], fill_mshr->ip, fill_mshr->address,
                                          fill_mshr->type);
+      } else {
+        // std::cout << "\n\nCUCKOO_RELOCATION_SUCCESSFUL\n" << endl;
+        cnt_cuckoo_success++;
+        skew = req_addr.skew;
+        set = req_addr.set;
+        way = req_addr.way;
+      }
     }
 
     bool success = filllike_miss(skew, set, way, *fill_mshr);
@@ -183,6 +207,8 @@ void MIRAGE_CACHE::handle_writeback()
 
         // Should never be true for mirage cache
         if (way == NUM_WAY) {
+          // std::cout << "\n\nCUCKOO_RELOCATION_INVOKED\n" << endl;
+          cnt_cuckoo_invokation++;
           uint32_t sk = UINT32_MAX;
           auto addr = handle_pkt.address;
           vector<tag_addr> candidates;
@@ -194,11 +220,19 @@ void MIRAGE_CACHE::handle_writeback()
           }
           assert(candidates.size() == NUM_SKEWS * NUM_WAY);
           uint32_t idx = gen() % (NUM_SKEWS * NUM_WAY);
-          bool success = cuckoo_relocate(MAX_HEIGHT, candidates[idx]);
+          auto req_addr = candidates[idx];
+          bool success = cuckoo_relocate(MAX_HEIGHT, req_addr);
           if (!success) {
-            std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+            // std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+            cnt_sae++;
             way = impl_replacement_find_victim(handle_pkt.cpu, handle_pkt.instr_id, set, &block[skew].data()[set * NUM_WAY], handle_pkt.ip, handle_pkt.address,
                                                handle_pkt.type);
+          } else {
+            // std::cout << "\n\nCUCKOO_RELOCATION_SUCCESSFUL\n" << endl;
+            cnt_cuckoo_success++;
+            skew = req_addr.skew;
+            set = req_addr.set;
+            way = req_addr.way;
           }
         }
 
