@@ -107,9 +107,9 @@ bool MIRAGE_CACHE::cuckoo_relocate(int height, tag_addr evac_addr)
     data_entry.set = tmp.set;
     data_entry.way = tmp.way;
   } else {
-    uint32_t set = get_set(addr, keys[evac_addr.skew]);
+    uint32_t set = get_set(addr, keys[skew]);
 
-    auto set_begin = std::next(std::begin(block[evac_addr.skew]), set * NUM_WAY);
+    auto set_begin = std::next(std::begin(block[skew]), set * NUM_WAY);
     auto set_end = std::next(set_begin, NUM_WAY);
     auto first_inv = std::find_if_not(set_begin, set_end, is_valid<BLOCK>());
     uint32_t way = std::distance(set_begin, first_inv);
