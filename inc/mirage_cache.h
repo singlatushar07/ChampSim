@@ -49,7 +49,7 @@ class MIRAGE_CACHE : public champsim::operable, public MemoryRequestConsumer, pu
 public:
   uint32_t cpu;
   const std::string NAME;
-  const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 6;
+  const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 1;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
 
   std::mt19937 gen;
@@ -75,7 +75,7 @@ public:
 
   // prefetch stats
   uint64_t pf_requested = 0, pf_issued = 0, pf_useful = 0, pf_useless = 0, pf_fill = 0;
-
+  uint64_t cnt_sae = 0;
   // queues
   champsim::delay_queue<PACKET> RQ{RQ_SIZE, HIT_LATENCY}, // read queue
       PQ{PQ_SIZE, HIT_LATENCY},                           // prefetch queue

@@ -47,7 +47,8 @@ void MIRAGE_CACHE::handle_fill()
 
     // Should never be true for mirage cache
     if (way == NUM_WAY){
-      std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+      // std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+      cnt_sae++;
       way = impl_replacement_find_victim(fill_mshr->cpu, fill_mshr->instr_id, set, &block[skew].data()[set * NUM_WAY], fill_mshr->ip, fill_mshr->address,
                                          fill_mshr->type);
     }
@@ -128,7 +129,8 @@ void MIRAGE_CACHE::handle_writeback()
 
         // Should never be true for mirage cache
         if (way == NUM_WAY){
-          std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+          // std::cout << "\n\nOOPS!! SET ASSOCIATIVE EVICTION\n" << endl;
+          cnt_sae++;
           way = impl_replacement_find_victim(handle_pkt.cpu, handle_pkt.instr_id, set, &block[skew].data()[set * NUM_WAY], handle_pkt.ip, handle_pkt.address,
                                              handle_pkt.type);
         }

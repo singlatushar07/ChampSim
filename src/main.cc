@@ -187,6 +187,7 @@ void print_sim_stats(uint32_t cpu, MIRAGE_CACHE* cache)
     cout << " WRITEBACK ACCESS: " << setw(10) << cache->sim_access[cpu][3] << "  HIT: " << setw(10) << cache->sim_hit[cpu][3] << "  MISS: " << setw(10)
          << cache->sim_miss[cpu][3] << endl;
   }
+  cout << " SET ASSOCIATIVE EVICTION: " << cache->cnt_sae << "\n";
 }
 void print_sim_stats(uint32_t cpu, CACHE* cache)
 {
@@ -318,7 +319,7 @@ void reset_cache_stats(uint32_t cpu, MIRAGE_CACHE* cache)
     cache->sim_hit[cpu][i] = 0;
     cache->sim_miss[cpu][i] = 0;
   }
-
+  cache->cnt_sae = 0;
   cache->pf_requested = 0;
   cache->pf_issued = 0;
   cache->pf_useful = 0;
