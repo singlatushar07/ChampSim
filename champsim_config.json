@@ -143,8 +143,10 @@
     "LLC": {
         "frequency": 4000,
         "sets": 16384,
-        "ways": 5,
-        "skews": 4,
+        "ways": 14,
+        "skews": 2,
+        "extra_tags": 6,
+        "cuckoo_height": 3,
         "rq_size": 32,
         "wq_size": 32,
         "pq_size": 32,

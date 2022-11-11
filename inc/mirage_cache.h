@@ -48,9 +48,8 @@ class MIRAGE_CACHE : public champsim::operable, public MemoryRequestConsumer, pu
 public:
   uint32_t cpu;
   const std::string NAME;
-  const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA = 1;
+  const uint32_t NUM_SET, NUM_WAY, NUM_SKEWS, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE, NUM_EXTRA, MAX_HEIGHT;
   const uint32_t HIT_LATENCY, FILL_LATENCY, OFFSET_BITS;
-  const uint32_t MAX_HEIGHT = 2;
 
   std::mt19937 gen;
 
@@ -136,13 +135,14 @@ public:
   const pref_t pref_type;
 
   // constructor
-  MIRAGE_CACHE(std::string v1, double freq_scale, unsigned fill_level, uint32_t v2, uint32_t v3, uint32_t skews, uint32_t v5, uint32_t v6, uint32_t v7,
-               uint32_t v8, uint32_t hit_lat, uint32_t fill_lat, uint32_t max_read, uint32_t max_write, std::size_t offset_bits, bool pref_load,
-               bool wq_full_addr, bool va_pref, unsigned pref_act_mask, MemoryRequestConsumer* ll, pref_t pref, repl_t repl)
+  MIRAGE_CACHE(std::string v1, double freq_scale, unsigned fill_level, uint32_t v2, uint32_t v3, uint32_t skews, uint32_t extra_tags, uint32_t cuckoo_height,
+               uint32_t v5, uint32_t v6, uint32_t v7, uint32_t v8, uint32_t hit_lat, uint32_t fill_lat, uint32_t max_read, uint32_t max_write,
+               std::size_t offset_bits, bool pref_load, bool wq_full_addr, bool va_pref, unsigned pref_act_mask, MemoryRequestConsumer* ll, pref_t pref,
+               repl_t repl)
       : champsim::operable(freq_scale), MemoryRequestConsumer(fill_level), MemoryRequestProducer(ll), NAME(v1), NUM_SET(v2), NUM_WAY(v3), NUM_SKEWS(skews),
-        WQ_SIZE(v5), RQ_SIZE(v6), PQ_SIZE(v7), MSHR_SIZE(v8), HIT_LATENCY(hit_lat + 4), FILL_LATENCY(fill_lat + 4), OFFSET_BITS(offset_bits), MAX_READ(max_read),
-        MAX_WRITE(max_write), prefetch_as_load(pref_load), match_offset_bits(wq_full_addr), virtual_prefetch(va_pref), pref_activate_mask(pref_act_mask),
-        repl_type(repl), pref_type(pref)
+        NUM_EXTRA(extra_tags), MAX_HEIGHT(cuckoo_height), WQ_SIZE(v5), RQ_SIZE(v6), PQ_SIZE(v7), MSHR_SIZE(v8), HIT_LATENCY(hit_lat + 4),
+        FILL_LATENCY(fill_lat + 4), OFFSET_BITS(offset_bits), MAX_READ(max_read), MAX_WRITE(max_write), prefetch_as_load(pref_load),
+        match_offset_bits(wq_full_addr), virtual_prefetch(va_pref), pref_activate_mask(pref_act_mask), repl_type(repl), pref_type(pref)
   {
     gen.seed(0);
     for (uint32_t i = 0; i < NUM_SKEWS; i++) {
